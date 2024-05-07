@@ -16,16 +16,24 @@ This patch modifies some of the scripts distributed with Isabelle. It may break 
 
 ## Usage
 1. Extract Isabelle99-1 distribution in some directory and build it.
+~~~
 % tar xzvf Isabelle99-1.tgz
 % ...
-	
+~~~
+
 2. Change directory into Isabelle99-1/src/HOL/Auth.
+~~~
 % cd Isabelle99-1/src/HOL/Auth
+~~~
 	
 3. Process the auth.diff file with patch command.
+~~~
 % patch -p1 < auth.diff
+~~~
 	
-4. Verify proofs with Isabelle.
+5. Verify proofs with Isabelle.
+~~~
 % ../../../bin/isabelle
 ...(misc. messages from your ML runtime)...
 > use_thy "SPT";
+~~~
