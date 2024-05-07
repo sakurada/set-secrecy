@@ -2,10 +2,6 @@
 
 ## Summary
 These proof scripts were originally distributed at http://www.brl.ntt.co.jp/people/sakurada/set-secrecy/ (not available now, available at [Wayback machine](https://web.archive.org/web/20081230092941/http://www.brl.ntt.co.jp/people/sakurada/set-secrecy/)) as
-
-https://web.archive.org/web/20081230092941/http://www.brl.ntt.co.jp/people/sakurada/set-secrecy/
-
-
 the supplementary material for the paper:
 ~~~
 Hideki Sakurada,
