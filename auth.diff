@@ -1,0 +1,1034 @@
+diff -cP Auth/Message.ML Auth-new/Message.ML
+*** Auth/Message.ML	Wed Dec  8 21:52:36 1999
+--- Auth-new/Message.ML	Wed Apr  2 20:14:25 2003
+***************
+*** 305,320 ****
+  
+  
+  (*In any message, there is an upper bound N on its greatest nonce.*)
+! Goal "EX N. ALL n. N<=n --> Nonce n ~: parts {msg}";
+  by (induct_tac "msg" 1);
+  by (ALLGOALS (asm_simp_tac (simpset() addsimps [exI, parts_insert2])));
+  (*MPair case: blast_tac works out the necessary sum itself!*)
+  by (blast_tac (claset() addSEs [add_leE]) 2);
+  (*Nonce case*)
+  by (res_inst_tac [("x","N + Suc nat")] exI 1);
+  by (auto_tac (claset() addSEs [add_leE], simpset()));
+! qed "msg_Nonce_supply";
+  
+  
+  (**** Inductive relation "analz" ****)
+  
+--- 305,333 ----
+  
+  
+  (*In any message, there is an upper bound N on its greatest nonce.*)
+! Goal "EX N. ALL n. N<=n --> Nonce (OS n) ~: parts {msg}";
+  by (induct_tac "msg" 1);
+  by (ALLGOALS (asm_simp_tac (simpset() addsimps [exI, parts_insert2])));
+  (*MPair case: blast_tac works out the necessary sum itself!*)
+  by (blast_tac (claset() addSEs [add_leE]) 2);
+  (*Nonce case*)
++ by (case_tac "nonce" 1);
++ by (Asm_simp_tac 1);
+  by (res_inst_tac [("x","N + Suc nat")] exI 1);
+  by (auto_tac (claset() addSEs [add_leE], simpset()));
+! qed "msg_Nonce_OS_supply";
+  
++ Goal "EX N. ALL n. N<=n --> Nonce (NS n) ~: parts {msg}";
++ by (induct_tac "msg" 1);
++ by (ALLGOALS (asm_simp_tac (simpset() addsimps [exI, parts_insert2])));
++ (*MPair case: blast_tac works out the necessary sum itself!*)
++ by (blast_tac (claset() addSEs [add_leE]) 2);
++ (*Nonce case*)
++ by (case_tac "nonce" 1);
++ by (Asm_simp_tac 1);
++ by (res_inst_tac [("x","N + Suc nat")] exI 1);
++ by (auto_tac (claset() addSEs [add_leE], simpset()));
++ qed "msg_Nonce_NS_supply";
+  
+  (**** Inductive relation "analz" ****)
+  
+diff -cP Auth/Message.thy Auth-new/Message.thy
+*** Auth/Message.thy	Thu Aug 24 19:39:42 2000
+--- Auth-new/Message.thy	Wed Apr  2 19:01:34 2003
+***************
+*** 29,37 ****
+    agent = Server | Friend nat | Spy
+  
+  datatype
+       msg = Agent  agent	    (*Agent names*)
+!          | Number nat       (*Ordinary integers, timestamps, ...*)
+!          | Nonce  nat       (*Unguessable nonces*)
+           | Key    key       (*Crypto keys*)
+  	 | Hash   msg       (*Hashing*)
+  	 | MPair  msg msg   (*Compound messages*)
+--- 29,43 ----
+    agent = Server | Friend nat | Spy
+  
+  datatype
++   number = Price nat | Order nat
++ 
++ datatype       (*ASN.1 "NumericString" and "OCTET STRING" types*)
++   nonce = NS nat | OS nat
++ 
++ datatype
+       msg = Agent  agent	    (*Agent names*)
+!          | Number number    (*Ordinary integers, timestamps, ...*)
+!          | Nonce  nonce     (*Unguessable nonces*)
+           | Key    key       (*Crypto keys*)
+  	 | Hash   msg       (*Hashing*)
+  	 | MPair  msg msg   (*Compound messages*)
+diff -cP Auth/Public.ML Auth-new/Public.ML
+*** Auth/Public.ML	Fri Sep 15 22:30:53 2000
+--- Auth-new/Public.ML	Wed Apr  2 19:07:40 2003
+***************
+*** 124,150 ****
+  (*** Supply fresh nonces for possibility theorems. ***)
+  
+  (*In any trace, there is an upper bound N on the greatest nonce in use.*)
+! Goal "EX N. ALL n. N<=n --> Nonce n ~: used evs";
+  by (induct_tac "evs" 1);
+  by (res_inst_tac [("x","0")] exI 1);
+  by (ALLGOALS (asm_simp_tac
+  	      (simpset() addsimps [used_Cons]
+  			addsplits [expand_event_case])));
+  by Safe_tac;
+! by (ALLGOALS (rtac (msg_Nonce_supply RS exE)));
+  by (ALLGOALS (blast_tac (claset() addSEs [add_leE])));
+  val lemma = result();
+  
+! Goal "EX N. Nonce N ~: used evs";
+  by (rtac (lemma RS exE) 1);
+  by (Blast_tac 1);
+! qed "Nonce_supply1";
+  
+! Goal "Nonce (@ N. Nonce N ~: used evs) ~: used evs";
+  by (rtac (lemma RS exE) 1);
+  by (rtac someI 1);
+  by (Fast_tac 1);
+! qed "Nonce_supply";
+  
+  (*Tactic for possibility theorems*)
+  fun possibility_tac st = st |>
+--- 124,172 ----
+  (*** Supply fresh nonces for possibility theorems. ***)
+  
+  (*In any trace, there is an upper bound N on the greatest nonce in use.*)
+! Goal "EX N. ALL n. N<=n --> Nonce (OS n) ~: used evs";
+  by (induct_tac "evs" 1);
+  by (res_inst_tac [("x","0")] exI 1);
+  by (ALLGOALS (asm_simp_tac
+  	      (simpset() addsimps [used_Cons]
+  			addsplits [expand_event_case])));
+  by Safe_tac;
+! by (ALLGOALS (rtac (msg_Nonce_OS_supply RS exE)));
+  by (ALLGOALS (blast_tac (claset() addSEs [add_leE])));
+  val lemma = result();
+  
+! Goal "EX N. Nonce (OS N) ~: used evs";
+  by (rtac (lemma RS exE) 1);
+  by (Blast_tac 1);
+! qed "Nonce_OS_supply1";
+  
+! Goal "Nonce (OS (@ N. Nonce (OS N) ~: used evs)) ~: used evs";
+  by (rtac (lemma RS exE) 1);
+  by (rtac someI 1);
+  by (Fast_tac 1);
+! qed "Nonce_OS_supply";
+! 
+! Goal "EX N. ALL n. N<=n --> Nonce (NS n) ~: used evs";
+! by (induct_tac "evs" 1);
+! by (res_inst_tac [("x","0")] exI 1);
+! by (ALLGOALS (asm_simp_tac
+! 	      (simpset() addsimps [used_Cons]
+! 			addsplits [expand_event_case])));
+! by Safe_tac;
+! by (ALLGOALS (rtac (msg_Nonce_NS_supply RS exE)));
+! by (ALLGOALS (blast_tac (claset() addSEs [add_leE])));
+! val lemma = result();
+! 
+! Goal "EX N. Nonce (NS N) ~: used evs";
+! by (rtac (lemma RS exE) 1);
+! by (Blast_tac 1);
+! qed "Nonce_NS_supply1";
+! 
+! Goal "Nonce (NS (@ N. Nonce (NS N) ~: used evs)) ~: used evs";
+! by (rtac (lemma RS exE) 1);
+! by (rtac someI 1);
+! by (Fast_tac 1);
+! qed "Nonce_NS_supply";
+  
+  (*Tactic for possibility theorems*)
+  fun possibility_tac st = st |>
+***************
+*** 152,159 ****
+      (ALLGOALS (simp_tac (simpset() delsimps [used_Says]))
+       THEN
+       REPEAT_FIRST (eq_assume_tac ORELSE' 
+!                    resolve_tac [refl, conjI, Nonce_supply]));
+! 
+  
+  (*** Specialized rewriting for the analz_image_... theorems ***)
+  
+--- 174,181 ----
+      (ALLGOALS (simp_tac (simpset() delsimps [used_Says]))
+       THEN
+       REPEAT_FIRST (eq_assume_tac ORELSE' 
+!                    resolve_tac [refl, conjI,
+!                                 Nonce_OS_supply, Nonce_NS_supply]));
+  
+  (*** Specialized rewriting for the analz_image_... theorems ***)
+  
+diff -cP Auth/SPT.ML Auth-new/SPT.ML
+*** Auth/SPT.ML	Thu Jan  1 09:00:00 1970
+--- Auth-new/SPT.ML	Wed Apr  2 20:37:07 2003
+***************
+*** 0 ****
+--- 1,486 ----
++ (* Author: Hideki Sakurada, NTT Communication Science Laboratories
++    Copyright 2003 Nippon Telegraph and Telephone Corporation *)
++ 
++ Goalw [sptr_def] "sptr [] = []";
++ by (Auto_tac);
++ qed "sptr_Nil";
++ Goalw [sptr_def] "sptr ((ev, env) # rest) = ev # (sptr rest)";
++ by (Auto_tac);
++ qed "sptr_Cons";
++ Addsimps [sptr_Nil, sptr_Cons];
++ 
++ AddEs spies_partsEs;
++ AddDs [impOfSubs analz_subset_parts];
++ AddDs [impOfSubs Fake_parts_insert];
++ Addsimps [image_eq_UN];
++ 
++ Goal "X : H ==> {X} <= H";
++ by (Auto_tac);
++ qed "element_is_subset";
++ 
++ Goal "(X, env) : set evs ==> X : set (sptr evs)";
++ by (rtac mp 1);
++ by (atac 2);
++ by (induct_tac "evs" 1);
++ by (Auto_tac);
++ qed "discard_env";
++ 
++ Goal "[| (Says A B M, env) : set evs; X : parts {M} |] \
++ \      ==> X : parts (knows Spy (sptr evs))";
++ by (dtac discard_env 1);
++ by (dtac Says_imp_knows_Spy 1);
++ by (dres_inst_tac [("X", "M")] element_is_subset 1);
++ by (dtac parts_mono 1);
++ by (Auto_tac);
++ qed "Says_in_parts_Spy";
++ 
++ Goal "[| (Says A B M, env) : set evs; X : analz {M} |] \
++ \      ==> X : analz (knows Spy (sptr evs))";
++ by (dtac discard_env 1);
++ by (dtac Says_imp_knows_Spy 1);
++ by (dres_inst_tac [("X", "M")] element_is_subset 1);
++ by (dtac analz_mono 1);
++ by (Auto_tac);
++ qed "Says_in_analz_Spy";
++ 
++ Goal "[| X : parts {Y}; (Says A B Y, env) : set evs |] \
++ \ ==> parts (insert X (knows Spy (sptr evs))) = parts (knows Spy (sptr evs ))";
++ by (rtac equalityI 1);
++ by (stac parts_insert_knows_Spy 1);
++ by (rtac parts_mono 2);
++ by (Auto_tac);
++ by (rtac Says_in_parts_Spy 1);
++ by (atac 1);
++ by (rtac (element_is_subset RSN (2, parts_trans)) 1);
++ by (Auto_tac);
++ qed "Says_not_change_parts_insert_knows_Spy";
++ 
++ 
++ Goal "evs: spt ==> (A: bad) --> (Key (priK A) : parts (spies (sptr evs)))";
++ by (rtac impI 1);
++ by (rtac (impOfSubs parts_increasing) 1);
++ by (rtac Spy_spies_bad 1);
++ by (atac 1);
++ qed "Spy_see_priK1";
++ 
++ Goal "evs: spt ==> (Key (priK A) : parts (spies (sptr evs))) --> (A: bad)";
++ by (etac spt.induct 1);
++ by (Auto_tac);
++ by (eres_inst_tac [("P", "Key (priK A) : parts (knows Spy (sptr evs4))")]
++       notE 1);
++ by (res_inst_tac [("A2", "C'")]
++      (impOfSubs (Says_not_change_parts_insert_knows_Spy RS equalityD1)) 1);
++ by (Auto_tac);
++ qed "Spy_see_priK2";
++ 
++ Goal "evs: spt ==> (Key (priK A) : parts (spies (sptr evs))) = (A: bad)";
++ by (rtac iffI 1);
++ by (rtac (Spy_see_priK2 RS mp) 1);
++ by (rtac (Spy_see_priK1 RS mp) 3);
++ by (REPEAT (atac 1));
++ qed "Spy_see_priK";
++ 
++ AddSDs [Spy_see_priK RSN (2, rev_iffD1)];
++ 
++ Goal "[| evs : spt; A ~: bad |] ==> Key (priK A) ~: analz (spies (sptr evs))";
++ by (Auto_tac);
++ qed "bad_leaks_priK";
++ 
++ Goal "[| Key (priK A) : analz (spies (sptr evs)); evs : spt |] \
++ \      ==> A : bad";
++ by (Auto_tac);
++ AddSDs [result()];
++ 
++ Goal "[| Key K : analz (insert X H); \
++ \         X : synth (analz H) |] \
++ \      ==> Key K : analz H";
++ by (rtac (make_elim (impOfSubs Fake_analz_insert)) 1);
++ by (Auto_tac);
++ qed "Key_analz_insert";
++ AddSDs [Key_analz_insert];
++ 
++ Goal "[| X : synth (analz H); Nonce n ~: analz H |] \
++ \      ==> Nonce n ~: analz (insert X H)";
++ by (rtac notI 1);
++ by (rtac (make_elim (impOfSubs Fake_analz_insert)) 1);
++ by (Auto_tac);
++ qed "Nonce_analz_insert";
++ AddIs [Nonce_analz_insert];
++ 
++ Goal "evs : spt ==> \
++ \      Key (sessionK K) ~: used (sptr evs) \
++ \      -->   (sessionK K) ~: keysFor (parts (knows Spy (sptr evs)))";
++ by (etac spt.induct 1);
++ by (Auto_tac);
++ by (dtac (impOfSubs (Fake_parts_insert RS keysFor_mono)) 1);
++ by (atac 1);
++ by (SELECT_GOAL Auto_tac 1);
++ by (dtac (impOfSubs (analz_subset_parts RS keysFor_mono)) 1);
++ by (contr_tac 1);
++ by (dtac (impOfSubs analz_subset_parts) 1);
++ by (dtac usedI 1);
++ by (dres_inst_tac [("f", "invKey")] arg_cong 1);
++ by (SELECT_GOAL Auto_tac 1);
++ 
++ by (eres_inst_tac
++     [("P", "sessionK K : keysFor (parts (knows Spy (sptr evs4)))")]
++     notE 1);
++ by (res_inst_tac [("X1", "PIBody"), ("A1", "C'")]
++      (Says_not_change_parts_insert_knows_Spy RS subst) 1);
++ by (atac 3);
++ by (atac 2);
++ by (Auto_tac);
++ qed "not_used_imply_not_keysFor";
++ 
++ 
++ Goal "analz (insert Y (insert Z H)) = analz (insert Z (insert Y H))";
++ by (stac insert_commute 1);
++ by (rtac refl 1);
++ qed "insert_commute_for_analz";
++ 
++ Addsimps (map (fn s => insert_commute_for_analz RS (s RSN (2, trans)))
++            [analz_insert_Agent, analz_insert_Nonce, 
++             analz_insert_Number, analz_insert_Key, 
++             analz_insert_Hash, analz_insert_MPair, analz_Crypt_if]);
++ 
++ 
++ Goal "X : analz (insert Y (insert Z H)) ==> X : analz (insert Z (insert Y H))";
++ by (stac insert_commute 1);
++ by (atac 1);
++ qed "analz_insert_insert_commute";
++ 
++ Goal "[| evs : spt; \
++ \         Key (sessionK K) ~: used (sptr evs) |] \
++ \      ==> \
++ \         analz (insert (Key (sessionK K)) (knows Spy (sptr evs))) \
++ \         = insert (Key (sessionK K)) (analz (knows Spy (sptr evs)))";
++ by (dtac (not_used_imply_not_keysFor RS mp) 1);
++ by (atac 1);
++ by (rtac analz_insert_Key 1);
++ by (rtac notI 1);
++ by (dtac (impOfSubs (analz_subset_parts RS keysFor_mono)) 1);
++ by (Auto_tac);
++ qed "fresh_sessionK_not_change_analz";
++ 
++ 
++ (*sessionK K_PReq in PReq is fresh*)
++ Goal "(Says C M ({| {| PISignature, \
++ \                      opEX P PI_OI_Link PANData (sessionK K_PReq) |}, \
++ \                      OI |}), env) : set evs \
++ \      ==> Key (sessionK K_PReq) : used (sptr evs)";
++ by (etac (Says_in_parts_Spy RS usedI) 1);
++ by (Simp_tac 1);
++ by (REPEAT ((stac insert_commute 1) THEN (Simp_tac 1)));
++ qed "K_PReq_fresh";
++ 
++ (*sessionK K1 in AuthReq is fresh*)
++ Goal "(Says M P (opEncB M' P' AuthReqData PIdata (sessionK K1)), env) : set evs \
++ \     ==> Key (sessionK K1) : used (sptr evs)";
++ by (etac (Says_in_parts_Spy RS usedI) 1);
++ by (Simp_tac 1);
++ by (REPEAT ((stac insert_commute 1) THEN (Simp_tac 1)));
++ qed "K1_fresh";
++ 
++ Goal "(Says P M (opEnc P' M' AuthResData (sessionK K2)), env) : set evs \
++ \     ==> Key (sessionK K2) : used (sptr evs)";
++ by (etac (Says_in_parts_Spy RS usedI) 1);
++ by (Simp_tac 1);
++ by (REPEAT ((stac insert_commute 1) THEN (Simp_tac 1)));
++ qed "K2_fresh";
++ 
++ Goal "(Says C M ({| {| PISignature, PIBody |}, OIData |}), cenv) : set evs \
++ \     ==> PIBody : analz (knows Spy (sptr evs))";
++ by (rtac Says_in_analz_Spy 1);
++ by (Auto_tac);
++ qed "PIBody_PReq_analz";
++ 
++ Goal "(Says M P (opEncB M' P' PIdata ({| PIHead, PIBody |}) K), env) : set evs \
++ \     ==> PIBody : analz (knows Spy (sptr evs))";
++ by (rtac Says_in_analz_Spy 1);
++ by (Auto_tac);
++ qed "PIBody_AuthReq_analz";
++ 
++ val PIBody_analz_dtac
++     = dresolve_tac [PIBody_PReq_analz, PIBody_AuthReq_analz];
++ 
++ Goal "(Says C M ({| {| PISignature, PIBody |}, OIData |}), cenv) : set evs \
++ \   | (Says M P (opEncB M' P' PIdata ({| PIHead, PIBody |}) K), env) : set evs \
++ \     ==> PIBody : analz (knows Spy (sptr evs))";
++ by (blast_tac (claset() addDs [PIBody_PReq_analz, PIBody_AuthReq_analz]) 1);
++ qed "PIBody_analz";
++ 
++ fun SessionK_secrecy_tac lemma = 
++   EVERY [(etac rev_mp 1),
++ 	 (etac spt.induct 1),
++ 	 (ALLGOALS Asm_simp_tac),
++          (*Fake*)
++          (spy_analz_tac 1),
++          (*AuthReq*)
++          (stac fresh_sessionK_not_change_analz 3),
++          (*PReq2*)
++          (((stac (PIBody_PReq_analz RS analz_insert_eq)) THEN' atac) 2),
++          (((stac (PIBody_PReq_analz RS analz_insert_eq RS analz_insert_cong))
++           THEN' atac) 2),
++          (stac fresh_sessionK_not_change_analz 2),
++          (*PReq1*)
++          (stac fresh_sessionK_not_change_analz 1),
++          (*finish*)
++          (auto_tac (claset() addDs [lemma], simpset()))];
++ 
++ 
++ Goal "[| (Says C M ({| ({| PISignature, \
++ \                           opEX P PI_OILink PANData (sessionK K_PReq) |}), \
++ \                       OIDualSigned |}), cenv) : set evs; \
++ \         cryptor P ~: bad; \
++ \         C ~: bad; \
++ \         evs : spt \
++ \      |] ==> Key (sessionK K_PReq) ~: analz (spies (sptr evs))";
++ by (SessionK_secrecy_tac K_PReq_fresh);
++ qed "K_PReq_secret";
++ 
++ Goal "[| (Says M P \
++ \              (opEncB M P ({| Nonce (OS RRPID3), TransID, Number (Price AuthReqAmt) |}) \
++ \                      ({| (opSO C ({| HPIData, (opH OIData) |})), PIBody |}) \
++ \                      (sessionK K1)), cenv) : set evs; \
++ \         cryptor P ~: bad; \
++ \         M ~: bad; P ~: bad; \
++ \         evs : spt \
++ \      |] ==> Key (sessionK K1) ~: analz (spies (sptr evs))";
++ by (SessionK_secrecy_tac K1_fresh);
++ qed "K1_secret";
++ 
++ Goal "[| (Says P M \
++ \              (opEnc P M ({| Nonce (OS RRPID3), TransID, Number (Price PurchAmt) |}) \
++ \                     (sessionK K2)), env) : set evs; \
++ \         cryptor M ~: bad; \
++ \         M ~: bad; P ~: bad; \
++ \         evs : spt \
++ \      |] ==> Key (sessionK K2) ~: analz (spies (sptr evs))";
++ by (SessionK_secrecy_tac K2_fresh);
++ qed "K2_secret";
++ 
++ Goal "(Notes C {| Nonce (NS PAN), Nonce (OS PANSecret) |}, env) : set evs \
++ \     ==> Nonce (NS PAN) : used (sptr evs)";
++ by (etac rev_mp 1);
++ by (induct_tac "evs" 1);
++ by (Auto_tac);
++ by (case_tac "a" 1);
++ by (Auto_tac);
++ qed "PAN_fresh";
++ 
++ Goal "(Notes C {| Nonce (NS PAN), Nonce (OS PANSecret) |}, env) : set evs \
++ \     ==> Nonce (OS PANSecret) : used (sptr evs)";
++ by (etac rev_mp 1);
++ by (induct_tac "evs" 1);
++ by (Auto_tac);
++ by (case_tac "a" 1);
++ by (Auto_tac);
++ qed "PANSecret_fresh";
++ 
++ Goal "[| (Notes A M, env) : set evs; X : parts {M} |] ==> X : used (sptr evs)";
++ by (etac rev_mp 1);
++ by (induct_tac "evs" 1);
++ by (case_tac "a" 2);
++ by (case_tac "aa" 2);
++ by (Auto_tac);
++ qed "Notes_imp_used";
++ 
++ fun Says_imp_used_tac i =
++   let fun loop hyps =
++     case hyps of
++       [] => []
++     | (hyp::rest)
++       => let val rule = case (concl_of hyp) of
++                         _ $ (Const ("op :", _)
++                              $ (Const ("Pair", _)
++                                 $ (Const ("Event.event.Notes", _) $ _ $ _)
++                                 $ _)
++                              $ _) => Notes_imp_used
++                       | _ $ (Const ("op :", _)
++                              $ (Const ("Pair", _)
++                                 $ (Const ("Event.event.Says", _) $ _ $ _ $ _)
++                                 $ _)
++                              $ _) => (Says_in_parts_Spy RS usedI)
++                       | _ => raise ERROR in
++           ((SOLVE
++              (((rtac (hyp RSN (1, rule)))
++                THEN'
++                  (REPEAT o ((CHANGED o Simp_tac)
++                             ORELSE' (stac parts_insert2)))) 1)) :: (loop rest))
++          end
++          handle _ => loop rest
++   in (SELECT_GOAL (METAHYPS (FIRST o loop) 1) i)
++   end;
++ 
++ fun Env_used_tac str i =
++   (subgoal_tac str i)
++   THEN (Says_imp_used_tac (i+1));
++ 
++ Goal "evs :spt ==>  ! n evt env  . Nonce n : set env --> ((evt, env) : set evs --> Nonce n : used (sptr evs))";
++ by (etac spt.induct 1);
++ by (Env_used_tac "Nonce (NS PAN) : used (sptr evs1)" 4);
++ by (Env_used_tac "Nonce (OS PANSecret) : used (sptr evs1)" 4);
++ by (Env_used_tac "Nonce (OS RRPID1) : used (sptr evs2)" 5);
++ by (Env_used_tac "Nonce (OS Chall_M) : used (sptr evs2)" 5);
++ by (Env_used_tac "Nonce (OS RRPID1) : used (sptr evs4)" 8);
++ by (Env_used_tac "Nonce (OS Chall_C) : used (sptr evs4)" 8);
++ by (SELECT_GOAL Auto_tac 8);
++ by (Env_used_tac "Nonce n : used (sptr evs4)" 8);
++ by (Env_used_tac "Nonce (OS ODSalt) : used (sptr evs4)" 9);
++ by (Env_used_tac "Nonce (NS PAN) : used (sptr evs7)" 12);
++ by (Env_used_tac "Nonce (OS PANSecret) : used (sptr evs7)" 12);
++ by (Auto_tac);
++ bind_thm("env_used", result() RS spec RS spec RS spec RS mp RS mp);
++ 
++ (*possibility*)
++ Goal "EX M C TransID RRPID2 Chall_C menv . EX evs: spt . \
++ \      (Says M C \
++ \           (opS M ({| TransID, Nonce (OS RRPID2), Nonce (OS Chall_C) |})), \
++ \       menv) : set evs";
++ by (REPEAT (resolve_tac [exI, bexI] 1));
++ fun postac thm i =
++   (rtac thm i)
++   THEN (REPEAT_SOME
++          (resolve_tac [refl, sessionK_supply,
++                        Nonce_OS_supply, Nonce_NS_supply]))
++   THEN Auto_tac;
++ by (postac spt.M3 2);
++ by (postac spt.P1 1);
++ by (rtac spt.P0 1);
++ by (postac spt.M2 1);
++ by (postac spt.C2 1);
++ by (postac spt.M1 1);
++ by (postac spt.C1 1);
++ by (postac spt.C0 1);
++ by (rtac spt.M0 1);
++ by (rtac spt.Nil 1);
++ by (Auto_tac);
++ 
++ Goal "[| Key (sessionK K) ~: analz H; \
++ \        Key (priK (cryptor R)) ~: analz H |] \
++ \     ==> analz (insert (opEX R M Mp (sessionK K)) H) \
++ \         = insert (opEX R M Mp (sessionK K)) \
++ \             (insert (Crypt (sessionK K) (opL M Mp)) \
++ \                (insert (Crypt (pubK (cryptor R)) {| Key (sessionK K), Mp |}) \
++ \                   (analz H)))";
++ by (Auto_tac);
++ qed "opEX_analz";
++ 
++ Goal "analz (insert X H) = analz (insert X (analz H))";
++ by (rtac equalityI 1);
++ by (rtac (analz_increasing RS insert_mono RS analz_mono) 1);
++ by (rtac ([analz_insert RS analz_mono, analz_idem RS equalityD1]
++           MRS subset_trans) 1);
++ qed "analz_insert_analz";
++ 
++ Goal "[| evs : spt ; Key (sessionK K) ~: used (sptr evs) |] \
++ \         ==> sessionK K ~: keysFor (analz (spies (sptr evs)))";
++ by (dtac (not_used_imply_not_keysFor RS mp) 1);
++ by (auto_tac (claset()
++       addDs [(impOfSubs (analz_subset_parts RS keysFor_mono))], simpset()));
++ val lemma1 = result();
++ 
++ Goal "evs : spt \
++ \  ==> ! PAN . \
++ \      Nonce (NS PAN) : analz (spies (sptr evs)) \
++ \      -->  (? C : bad . ? PANSecret env . \
++ \             (Notes C {| Nonce (NS PAN), Nonce (OS PANSecret) |}, env) \
++ \               : set evs) \
++ \        |  (? C M P OD P PurchAmt PANSecret RRPID1 LID_C Chall_C . \
++ \             cryptor P : bad & \
++ \             (Says C M ({| Nonce (OS RRPID1), \
++ \                           Nonce (OS LID_C), \
++ \                           Nonce (OS Chall_C) |}), \
++ \              [Agent C, Agent M, Agent P, Number (Order OD), \
++ \                 Number (Price PurchAmt), Nonce (NS PAN), \
++ \                 Nonce (OS PANSecret), \
++ \               Nonce (OS RRPID1), Nonce (OS LID_C), Nonce (OS Chall_C)]) \
++ \               : set evs) \
++ \        |  (? P C' PANSecret env . \
++ \             P : bad & \
++ \             (Notes P {| Agent C', Nonce (NS PAN), Nonce (OS PANSecret) |}, \
++ \              env) \
++ \             : set evs)";
++ by (etac spt.induct 1);
++ (*Nil*)
++ by (SELECT_GOAL Auto_tac 1); 
++ (*fake*)
++ by (Simp_tac 1);
++ by (rtac allI 1);
++ by (rtac impI 1);
++ by (dtac (impOfSubs Fake_analz_insert) 1);
++ by (atac 1);
++ by (Full_simp_tac 1);
++ by (etac allE 1);
++ by (dtac mp 1);
++ by (atac 1);
++ by (SELECT_GOAL Auto_tac 1);
++ (*C1*)
++ by (Simp_tac 1);
++ by (rtac conjI 1);
++ by (REPEAT (resolve_tac [impI, allI, conjI] 1));
++ by (rtac disjI1 1);
++ by (Blast_tac 1);
++ by (etac allE 1);
++ by (rtac impI 1);
++ by (dtac mp 1);
++ by (atac 1);
++ by (SELECT_GOAL Auto_tac 1);
++ by (SELECT_GOAL Auto_tac 1);
++ (*C2*)
++ by (Simp_tac 1);
++ by ((rtac allI 1) THEN (rtac impI 1));
++ by (etac allE 1);
++ by (dtac mp 1);
++ by (atac 1);
++ by (SELECT_GOAL Auto_tac 1);
++ by (SELECT_GOAL 
++     (REPEAT_SOME (resolve_tac [exI, disjI1])) 1);
++ by (Blast_tac 1);
++ (*C3*)
++ by (ftac lemma1 1);
++ by (atac 1);
++ by (Asm_full_simp_tac 1);
++ by (rtac impI 1);
++ by (dtac ((impOfSubs analz_subset_parts)
++             RS (Spy_see_priK RSN (2, rev_iffD1))) 1);
++ by (atac 1);
++ by (rtac disjI2 1);
++ by (rtac disjI1 1);
++ by (REPEAT (rtac exI 1));
++ by (rtac conjI 1);
++ by (atac 1);
++ by (REPEAT (rtac exI 1));
++ by (atac 1);
++ (*M0*)
++ by (SELECT_GOAL Auto_tac 1);
++ (*M1*)
++ by (SELECT_GOAL Auto_tac 1);
++ (*M2*)
++ by ((ftac lemma1 1) THEN (atac 1));
++ by (Asm_simp_tac 1);
++ by (stac analz_insert_eq 1);
++ by (res_inst_tac [("X", "PIBody"), ("A", "C'")] Says_in_analz_Spy 1);
++ by (atac 1);
++ by (SELECT_GOAL Auto_tac 1);
++ by (stac analz_insert_analz 1);
++ by (res_inst_tac [("X1", "PIBody")] (analz_insert_eq RS ssubst) 1);
++ by (res_inst_tac [("X", "PIBody"), ("A", "C'")] Says_in_analz_Spy 1);
++ by (atac 1);
++ by (SELECT_GOAL Auto_tac 1);
++ by (Asm_full_simp_tac 1);
++ (*M3*)
++ by (SELECT_GOAL Auto_tac 1);
++ (*P0*)
++ by (Simp_tac 1);
++ by (rtac conjI 1);
++ by (REPEAT (resolve_tac [impI, allI, conjI] 1));
++ by (((rtac disjI2) THEN' (rtac disjI2)) 1);
++ by (Blast_tac 1);
++ by (SELECT_GOAL Auto_tac 1);
++ by (SELECT_GOAL Auto_tac 1);
++ (*P1*)
++ by (ftac lemma1 1);
++ by (atac 1);
++ by (Asm_full_simp_tac 1);
++ qed "PAN_secrecy";
+diff -cP Auth/SPT.thy Auth-new/SPT.thy
+*** Auth/SPT.thy	Thu Jan  1 09:00:00 1970
+--- Auth-new/SPT.thy	Wed Apr  2 20:35:25 2003
+***************
+*** 0 ****
+--- 1,174 ----
++ (* Author: Hideki Sakurada, NTT Communication Science Laboratories
++    Copyright 2003 Nippon Telegraph and Telephone Corporation *)
++ 
++ SPT = SetOp +
++ 
++ consts
++   spt :: "(event * (msg list)) list set"
++ 
++ constdefs
++   sptr :: "(event * (msg list)) list => event list"
++   "sptr == map fst"
++ 
++ inductive spt
++   intrs
++   Nil "[] : spt"
++   Fake "[| evs: spt; X: synth (analz (spies (sptr evs))) |]
++ 	==> (Says Spy B X, []) # evs : spt"
++   (* Cardholder *)
++   (* PAN, PANSecretは何度でもリサイクルするのでそれだけで1つのNotesに入れておく *)
++   (* Notes にいれるのは used にするため *)
++   (* usedにいれるためにNotesにいれるのはあまりうまくない. freshnessの扱い方は研究ネタか？ *)
++   (* PANSecret は P に依存するのでなんとかせなあかん *)
++   C0 "[| evs0: spt;
++ 	 Nonce (NS PAN) ~: used (sptr evs0);
++ 	 Nonce (OS PANSecret)   ~: used (sptr evs0) |]
++       ==> (Notes C {|Nonce (NS PAN), Nonce (OS PANSecret) |},
++ 	   [Agent C, Nonce (NS PAN), Nonce (OS PANSecret) ])
++ 	    # evs0 : spt"
++   C1 "[| evs1: spt;
++ 	 (Notes C {|Nonce (NS PAN), Nonce (OS PANSecret)|},
++ 	   [Agent C, Nonce (NS PAN), Nonce (OS PANSecret)])
++ 	    : set evs1;
++ 	 Nonce (OS RRPID1)  ~: used (sptr evs1);
++ 	 Nonce (OS LID_C)   ~: used (sptr evs1);
++ 	 Nonce (OS Chall_C) ~: used (sptr evs1) |]
++       ==> (Says C M ({| Nonce (OS RRPID1), Nonce (OS LID_C), Nonce (OS Chall_C) |}),
++ 	   [Agent C, Agent M, Agent P, Number (Order OD), Number (Price PurchAmt), Nonce (NS PAN), Nonce (OS PANSecret),
++ 	    Nonce (OS RRPID1), Nonce (OS LID_C), Nonce (OS Chall_C)]) # evs1 : spt"
++ (*
++   C1 "[| evs1: spt;
++ 	 Nonce (NS PAN) ~: used (sptr evs1);
++ 	 Nonce (OS PANSecret) ~: used (sptr evs1);
++ 	 Nonce (OS RRPID1)  ~: used (sptr evs1);
++ 	 Nonce (OS LID_C)   ~: used (sptr evs1);
++ 	 Nonce (OS Chall_C) ~: used (sptr evs1) |]
++       ==> (Says C M ({| Nonce (OS RRPID1), Nonce (OS LID_C), Nonce (OS Chall_C) |}),
++ 	   [Agent C, Agent M, Agent P, Number (Order OD), Number (Price PurchAmt), Nonce (NS PAN), Nonce (OS PANSecret),
++ 	    Nonce (OS RRPID1), Nonce (OS LID_C), Nonce (OS Chall_C)]) # (Notes C {|Nonce (NS PAN), Nonce (OS PANSecret)|}, []) # evs1 : spt"
++ *)
++   C2 "[| evs2: spt;
++ 	 (Says C M ({| Nonce (OS RRPID1), Nonce (OS LID_C), Nonce (OS Chall_C) |}),
++ 	  [Agent C, Agent M, Agent P, Number (Order OD), Number (Price PurchAmt), Nonce (NS PAN), Nonce (OS PANSecret),
++ 	   Nonce (OS RRPID1), Nonce (OS LID_C), Nonce (OS Chall_C)]) : set evs2;
++ 	 (Says M' C (opS M {|
++ 			    {|
++ 			     Nonce (OS LID_C),
++ 			     Nonce (OS LID_M),
++ 			     Nonce (OS XID)
++ 			     |},
++ 			    Nonce (OS RRPID1),
++ 			    Nonce (OS Chall_C),
++ 			    Nonce (OS Chall_M)
++ 			    |}), menv) : set evs2;
++ 	 Nonce (OS ODSalt) ~: used (sptr evs2);
++ 	 Nonce (OS RRPID2) ~: used (sptr evs2);
++ 	 Key (sessionK K_PReq) ~: used (sptr evs2);
++ 	 TransID = {| Nonce (OS LID_C), Nonce (OS LID_M), Nonce (OS XID) |};
++ 	 PANData = {| Nonce (NS PAN), Nonce (OS PANSecret) |};
++ 	 PIHead =  {| TransID, opH (Number (Order OD)), Number (Price PurchAmt) |};
++ 	 OIData =  {| TransID, Nonce (OS RRPID2), Nonce (OS Chall_C),
++ 		    opH (Number (Order OD)), Nonce (OS ODSalt) |};
++ 	 PIData = {| PIHead, PANData |} |]
++       ==> ((Says C M ({|
++ 		       {|
++ 			opSO C {| opH PIData, opH OIData |},
++ 			opEX P (opL PIHead OIData) PANData (sessionK K_PReq)
++ 			|},
++ 		       {| OIData, opH PIData |} |})),
++ 	    [Agent C, Agent M, Agent P, Number (Order OD), Number (Price PurchAmt), Nonce (NS PAN), Nonce (OS PANSecret),
++ 	   Nonce (OS RRPID1), Nonce (OS LID_C), Nonce (OS Chall_C),
++ 	    Nonce (OS LID_M), Nonce (OS XID), Nonce (OS Chall_M),
++ 	    Nonce (OS ODSalt), Nonce (OS RRPID2), Key (sessionK K_PReq)]) # evs2 : spt"
++   (* Merchant *)
++   M0 "evs3: spt
++       ==> (Notes M {|Number (Order OD), Number (Price AuthReqAmt)|},
++ 	   [Agent M, Agent C, Agent P, Number (Order OD), Number (Price AuthReqAmt)])
++ 	      # evs3 : spt"
++   M1 "[| evs3: spt;
++          (Notes M {|Number (Order OD), Number (Price AuthReqAmt)|},
++ 	   [Agent M, Agent C, Agent P, Number (Order OD), Number (Price AuthReqAmt)])
++            : set evs3;
++ 	 (Says C' M {| Nonce (OS RRPID1), Nonce (OS LID_C), Nonce (OS Chall_C) |}, cenv) : set evs3;
++ 	 Nonce (OS LID_M)  ~: used (sptr evs3);
++ 	 Nonce (OS XID)   ~: used (sptr evs3);
++ 	 Nonce (OS Chall_M) ~: used (sptr evs3);
++ 	 TransID = {| Nonce (OS LID_C), Nonce (OS LID_M), Nonce (OS XID) |} |]
++       ==> (Says M C (opS M {| TransID, Nonce (OS RRPID1), Nonce (OS Chall_C), Nonce (OS Chall_M) |}),
++ 	   [Agent M, Agent C, Agent P, Number (Order OD), Number (Price AuthReqAmt),
++ 	    Nonce (OS RRPID1), Nonce (OS LID_C), Nonce (OS Chall_C)]) # evs3 : spt"
++   M2 "[| evs4: spt;
++          TransID = {| Nonce (OS LID_C), Nonce (OS LID_M), Nonce (OS XID) |};
++ 	 (Says M C (opS M {| TransID, Nonce (OS RRPID1), Nonce (OS Chall_C), Nonce (OS Chall_M) |}),
++ 	  [Agent M, Agent C, Agent P, Number (Order OD), Number (Price AuthReqAmt),
++ 	   Nonce (OS RRPID1), Nonce (OS LID_C), Nonce (OS Chall_C)]) : set evs4;
++ 	 OIData = {| TransID, Nonce (OS RRPID2), Nonce (OS Chall_C),
++ 		     opH (Number (Order OD)), Nonce (OS ODSalt) |};
++ 	 (Says C' M ({|
++ 		      {| (opSO C ({| HPIData, (opH OIData) |})), PIBody |},
++ 		      {| OIData, HPIData |}
++ 		      |}), cenv) : set evs4;
++ 	 Nonce (OS RRPID3) ~: used (sptr evs4);
++ 	 Key (sessionK K1) ~: used (sptr evs4)
++ 	 |]
++       ==> (Says M P (opEncB M P ({| Nonce (OS RRPID3), TransID, Number (Price AuthReqAmt) |})
++ 		     ({| (opSO C ({| HPIData, (opH OIData) |})), PIBody |})
++ 		     (sessionK K1)),
++ 	   [Agent M, Agent C, Agent P, Number (Order OD), Number (Price AuthReqAmt),
++ 	    Nonce (OS RRPID1), Nonce (OS LID_C), Nonce (OS Chall_C),
++ 	    HPIData, PIBody, Nonce (OS ODSalt),
++ 	    Nonce (OS RRPID3), Key (sessionK K1)]) # evs4 : spt"
++   M3 "[| evs5: spt;
++          TransID = {| Nonce (OS LID_C), Nonce (OS LID_M), Nonce (OS XID) |};
++ 	 OIData = {| TransID, Nonce (OS RRPID2), Nonce (OS Chall_C),
++ 		     opH (Number (Order OD)), Nonce (OS ODSalt) |};
++ 	 (Says M P (opEncB M P ({| Nonce (OS RRPID3), TransID, Number (Price AuthReqAmt) |})
++ 		    ({| (opSO C ({| HPIData, (opH OIData) |})), PIBody |})
++ 		    (sessionK K1)),
++ 	  [Agent M, Agent C, Agent P, Number (Order OD), Number (Price AuthReqAmt),
++ 	   Nonce (OS RRPID1), Nonce (OS LID_C), Nonce (OS Chall_C),
++ 	   HPIData, PIBody, Nonce (OS ODSalt),
++ 	   Nonce (OS RRPID3), Key (sessionK K1)]) : set evs5;
++ 	 (Says P' M (opEnc P M ({| Nonce (OS RRPID3), TransID, Number (Price AuthAmt) |}) (sessionK K2)), senv) : set evs5;
++ 	 AuthAmt = AuthReqAmt |]
++       ==> (Says M C (opS M ({| TransID, Nonce (OS RRPID2), Nonce (OS Chall_C) |})),
++ 	   [Agent M, Agent C, Agent P, Number (Order OD), Number (Price AuthReqAmt),
++ 	    Nonce (OS RRPID1), Nonce (OS LID_C), Nonce (OS Chall_C),
++ 	    HPIData, PIBody, Nonce (OS ODSalt),
++ 	    Nonce (OS RRPID3), Key (sessionK K1)]) # evs5 : spt"
++   (* Payment gateway *)
++   (* TransID は検証をラクにするため *)
++   P0 "[| evs6 : spt |]
++       ==> (Notes P {| Agent C, Nonce (NS PAN), Nonce (OS PANSecret) |},
++ 	   [Agent P, Agent C, Nonce (NS PAN), Nonce (OS PANSecret)]) # evs6 : spt"
++   P1 "[| evs7 : spt;
++          (Notes P {| Agent C, Nonce (NS PAN), Nonce (OS PANSecret) |},
++ 	  [Agent P, Agent C, Nonce (NS PAN), Nonce (OS PANSecret)]) : set evs7;
++ 	 (Says M' P (opEncB M P
++ 		     ({| Nonce (OS RRPID3), TransID, Number (Price AuthReqAmt) |})
++ 		     ({|
++ 		       opSO C ({|
++ 				(opH ({| {| TransID, HOD, Number (Price PurchAmt) |},
++ 				         PANData |})),
++ 				HOIData
++ 				|}),
++ 		       opEX P ({|
++ 				{| TransID, HOD, Number (Price PurchAmt) |},
++ 				HOIData
++ 				|}) PANData (sessionK K_PReq)
++ 		       |}) (sessionK K1)), menv) : set evs7;
++          TransID = {| Nonce (OS LID_C), Nonce (OS LID_M), Nonce (OS XID) |};
++          PANData = {| Nonce (NS PAN), Nonce (OS PANSecret) |};
++ 	 PurchAmt = AuthReqAmt;
++ 	 Key (sessionK K2) ~: used (sptr evs7) |]
++       ==> (Says P M (opEnc P M ({| Nonce (OS RRPID3), TransID, Number (Price PurchAmt) |}) (sessionK K2)),
++ 	   [Agent P, Agent C, Nonce (NS PAN), Nonce (OS PANSecret),
++ 	    Agent M, PANData, Key (sessionK K2)]) # evs7 : spt"
++ (* GatewayのTransIDはregularityの証明を楽にするため*)
++ (*
++   ValidPANSet を省略した.
++   「Customerがうまく認証できた場合では, PANDataを認証したP1が存在する」
++   のようにして使う.
++   *)
++ 
++ end 
+diff -cP Auth/SetOp.ML Auth-new/SetOp.ML
+*** Auth/SetOp.ML	Thu Jan  1 09:00:00 1970
+--- Auth-new/SetOp.ML	Wed Apr  2 20:36:10 2003
+***************
+*** 0 ****
+--- 1,99 ----
++ (* Author: Hideki Sakurada, NTT Communication Science Laboratories
++    Copyright 2003 Nippon Telegraph and Telephone Corporation *)
++ 
++ Addsimps [isSym_sessionK, rewrite_rule [isSymKey_def] isSym_sessionK];
++ 
++ Goal "pubK A ~= sessionK K";
++ by (rtac notI 1);
++ by (dres_inst_tac [("f", "isSymKey")] arg_cong 1);
++ by (Full_simp_tac 1);
++ qed "pubK_neq_sessionK";
++ 
++ Goal "priK A ~= sessionK K";
++ by (rtac notI 1);
++ by (dres_inst_tac [("f", "isSymKey")] arg_cong 1);
++ by (Full_simp_tac 1);
++ qed "priK_neq_sessionK";
++ 
++ val keys_distinct = [pubK_neq_sessionK, priK_neq_sessionK];
++ AddIffs (keys_distinct @ (keys_distinct RL [not_sym]));
++ 
++ Goal "EX N. ALL n. N<=n --> na <= sessionK n";
++ by (induct_tac "na" 1);
++ by (Auto_tac);
++ by (case_tac "EX na' . sessionK na' = n" 1);
++ by (Auto_tac);
++ by (res_inst_tac [("x", "max N (Suc na')")] exI 1);
++ by (rtac allI 1);
++ by (rtac impI 1);
++ by (Full_simp_tac 1);
++ by (etac conjE 1);
++ by (eres_inst_tac [("x", "n")] allE 1);
++ by (etac impE 1);
++ by (atac 1);
++ by (stac Suc_le_eq 1);
++ by (stac order_less_le 1);
++ by (rtac conjI 1);
++ by (Auto_tac);
++ by (dtac (inj_sessionK RS injD) 1);
++ by (Auto_tac);
++ (**)
++ by (res_inst_tac [("x", "N")] exI 1);
++ by (rtac allI 1);
++ by (etac allE 1);
++ by (rtac impI 1);
++ by (etac impE 1);
++ by (atac 1);
++ by (stac Suc_le_eq 1);
++ by (stac order_less_le 1);
++ by (Auto_tac);
++ val lemma = result();
++ 
++ Goal "EX N. ALL n. N<=n --> Key (sessionK n) ~: parts {msg}";
++ by (induct_tac "msg" 1);
++ by (ALLGOALS (asm_simp_tac (simpset() addsimps [exI, parts_insert2])));
++ (*MPair case: blast_tac works out the necessary sum itself!*)
++ by (blast_tac (claset() addSEs [add_leE]) 2);
++ (*Nonce case*)
++ by (cut_facts_tac [lemma] 1);
++ by (etac exE 1);
++ by (res_inst_tac [("x", "N")] exI 1);
++ by (rtac allI 1);
++ by (eres_inst_tac [("x", "n")] allE 1);
++ by (rtac impI 1);
++ by (etac impE 1);
++ by (atac 1);
++ by (Auto_tac);
++ by (rtac (Suc_n_not_le_n RS notE) 1);
++ by (atac 1);
++ qed "msg_sessionK_supply";
++ 
++ Goal "Key (sessionK n) ~: used []";
++ by (stac used_Nil 1);
++ by (Auto_tac);
++ by (case_tac "B" 1);
++ by (Auto_tac);
++ qed "sessionK_not_in_initState";
++ 
++ Goal "EX N. ALL n. N<=n --> Key (sessionK n) ~: used evs";
++ by (induct_tac "evs" 1);
++ by (res_inst_tac [("x","0")] exI 1);
++ by (ALLGOALS (asm_simp_tac
++ 	      (simpset() addsimps [used_Cons, sessionK_not_in_initState]
++ 			addsplits [expand_event_case])));
++ by Safe_tac;
++ by (ALLGOALS (rtac (msg_sessionK_supply RS exE)));
++ by (ALLGOALS (blast_tac (claset() addSEs [add_leE])));
++ val lemma = result();
++ 
++ Goal "EX N. Key (sessionK N) ~: used evs";
++ by (rtac (lemma RS exE) 1);
++ by (Blast_tac 1);
++ qed "sessionK_supply1";
++ 
++ Goal "Key (sessionK (@ N. Key (sessionK N) ~: used evs)) ~: used evs";
++ by (rtac (lemma RS exE) 1);
++ by (rtac someI 1);
++ by (Fast_tac 1);
++ qed "sessionK_supply";
++ 
+diff -cP Auth/SetOp.thy Auth-new/SetOp.thy
+*** Auth/SetOp.thy	Thu Jan  1 09:00:00 1970
+--- Auth-new/SetOp.thy	Wed Apr  2 20:35:53 2003
+***************
+*** 0 ****
+--- 1,48 ----
++ (* Author: Hideki Sakurada, NTT Communication Science Laboratories
++    Copyright 2003 Nippon Telegraph and Telephone Corporation *)
++ 
++ SetOp = Signer +
++ 
++ consts
++ (**)
++   sessionK :: "nat => key"
++ 
++ syntax
++ (**)
++   opH  :: msg => msg
++   opL  :: msg => msg => msg
++ (**)
++   opSO :: agent => msg => msg
++   opS  :: agent => msg => msg
++   opE  :: agent => msg => key => msg
++   opEX :: agent => msg => msg => key => msg
++   opEnc ::  agent => agent => msg => key => msg
++   opEncB ::  agent => agent => msg => msg => key => msg
++ 
++ rules
++ (**)
++   inj_sessionK "inj sessionK"
++   isSym_sessionK "isSymKey (sessionK x)"
++ (*
++   sessionK_neq_pubK "sessionK K ~= pubK A"
++ *)
++ 
++ translations
++   "opH M" == "Hash M"
++   "opL M N" == "{| M, Hash N |}"
++   "opSO A M" == "Crypt (priK (signer A)) (Hash M)"
++ (*
++   "opE A M K" => "{| Crypt (invKey K) M,
++ 		     Crypt (pubK (cryptor A)) (Key K) |}"
++   "opEX A M Mp K" => "{| Crypt (invKey K) (opL M Mp),
++ 		         Crypt (pubK (cryptor A)) {| Key K, Mp |} |}"
++ *)
++   "opE A M K" => "{| Crypt K M,
++ 		     Crypt (pubK (cryptor A)) (Key K) |}"
++   "opEX A M Mp K" => "{| Crypt K (opL M Mp),
++ 		         Crypt (pubK (cryptor A)) {| Key K, Mp |} |}"
++   "opS A M" => "{| M, opSO A M |}"
++   "opEnc S R T K" == "opE R (opS S T) K"
++   "opEncB S R T B K" => "{|opEnc S R (opL T B) K, B|}"
++ 
++ end
+diff -cP Auth/Signer.thy Auth-new/Signer.thy
+*** Auth/Signer.thy	Thu Jan  1 09:00:00 1970
+--- Auth-new/Signer.thy	Wed Apr  2 20:36:03 2003
+***************
+*** 0 ****
+--- 1,15 ----
++ (* Author: Hideki Sakurada, NTT Communication Science Laboratories
++    Copyright 2003 Nippon Telegraph and Telephone Corporation *)
++ 
++ Signer = Public +
++ 
++ consts
++   signer:: agent => agent
++   cryptor :: agent => agent
++ 
++ rules
++   inj_signer		"inj signer"
++   inj_cryptor		"inj cryptor"
++   signer_neqcryptor	"signer A ~= cryptor B"
++ 
++ end
